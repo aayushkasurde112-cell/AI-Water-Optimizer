@@ -1,0 +1,101 @@
+import streamlit as st
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.preprocessing import StandardScaler
+import warnings
+warnings.filterwarnings('ignore')
+
+st.set_page_config(page_title="AI Water Optimizer", layout="wide")
+st.title("🧠 AI Water Optimization System - Mumbai")
+st.markdown("**Thakur College AI & Data Science Project | Predicts demand + quality**")
+
+@st.cache_resource
+def load_models():
+    np.random.seed(42)
+    n = 2000
+    
+    # Generate training data
+    temp = np.random.uniform(20, 40, n)
+    humidity = np.random.uniform(40, 90, n)
+    holiday = np.random.randint(0, 2, n)
+    demand = 100 + temp*2 - humidity*0.5 + holiday*20 + np.random.normal(0, 10, n)
+    
+    ph = np.random.uniform(6, 9, n)
+    turbidity = np.random.uniform(1, 20, n)
+    tds = np.random.uniform(50, 1000, n)
+    quality = ((ph > 6.5) & (ph < 8.5) & (turbidity < 10) & (tds < 500)).astype(int)
+    
+    # Train demand model
+    scaler = StandardScaler()
+    X_demand = scaler.fit_transform(np.column_stack([temp, humidity, holiday]))
+    demand_model = RandomForestRegressor(n_estimators=100, random_state=42)
+    demand_model.fit(X_demand, demand)
+    
+    # Train quality model
+    quality_df = pd.DataFrame({'ph': ph, 'turbidity': turbidity, 'tds': tds})
+    quality_model = RandomForestClassifier(n_estimators=100, random_state=42)
+    quality_model.fit(quality_df, quality)
+    
+    return demand_model, scaler, quality_model
+
+# Load models
+demand_model, scaler, quality_model = load_models()
+
+# Sidebar inputs
+st.sidebar.header("🌡️ **Weather Conditions**")
+col1, col2 = st.columns(2)
+with col1:
+    temp = st.sidebar.slider("Temperature (°C)", 20.0, 45.0, 32.0)
+    humidity = st.sidebar.slider("Humidity (%)", 30.0, 95.0, 78.0)
+with col2:
+    holiday = st.sidebar.radio("Holiday?", ["No", "Yes"])
+    holiday = 1 if holiday == "Yes" else 0
+
+st.sidebar.header("💧 **Water Quality Sensors**")
+ph = st.sidebar.slider("pH Level", 5.0, 10.0, 7.2)
+turbidity = st.sidebar.slider("Turbidity (NTU)", 0.5, 25.0, 4.0)
+tds = st.sidebar.slider("TDS (ppm)", 50.0, 1200.0, 320.0)
+
+if st.sidebar.button("🚀 **ANALYZE & OPTIMIZE**", type="primary", use_container_width=True):
+    with st.spinner("🤖 AI analyzing water system..."):
+        # Predict demand
+        input_scaled = scaler.transform([[temp, humidity, holiday]])
+        demand_liters = demand_model.predict(input_scaled)[0]
+        
+        # Predict quality
+        quality_data = pd.DataFrame({'ph': [ph], 'turbidity': [turbidity], 'tds': [tds]})
+        is_safe = quality_model.predict(quality_data)[0]
+        safety_score = quality_model.predict_proba(quality_data).max()
+        
+        # Results
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("💧 **Daily Demand**", f"{demand_liters:.0f} L/person")
+        with col2:
+            st.metric("🔍 **Water Safety**", "✅ SAFE" if is_safe else "❌ UNSAFE")
+        with col3:
+            st.metric("📊 **Confidence**", f"{safety_score:.1%}")
+        
+        # Chart
+        st.subheader("📈 **Prediction vs Safe Limits**")
+        chart_data = pd.DataFrame({
+            'Value': [demand_liters, ph, turbidity, tds],
+            'Safe Limit': [150, 7.5, 10, 500]
+        }, index=['Demand(L)', 'pH', 'Turbidity', 'TDS'])
+        st.bar_chart(chart_data)
+        
+        # Recommendations
+        st.subheader("💡 **Smart Recommendations**")
+        if not is_safe or demand_liters > 160:
+            st.error("⚠️ **ALERT: Action Required!**")
+            st.info("- Reduce usage by 20-25%")
+            st.info("- Install water treatment filters")
+            st.info("- Schedule maintenance check")
+        else:
+            st.success("🎉 **Optimal Conditions**")
+            st.info("- Continue current usage")
+            st.info("- Monitor weather forecasts")
+
+st.markdown("---")
+st.markdown("**🤖 Thakur College AI & Data Science | Production Ready**")
