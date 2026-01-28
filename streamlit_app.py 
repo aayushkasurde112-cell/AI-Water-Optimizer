@@ -1,0 +1,79 @@
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import plotly.graph_objects as go
+from sklearn.ensemble import RandomForestRegressor
+import joblib
+
+# Page config
+st.set_page_config(page_title="AI Water Optimizer", layout="wide")
+
+st.title("🌊 AI Water Optimizer")
+st.markdown("**Thakur College AI & Data Science Department**")
+
+# Sidebar inputs
+st.sidebar.header("Water Usage Parameters")
+tank_capacity = st.sidebar.slider("Tank Capacity (liters)", 500, 5000, 2000)
+people_count = st.sidebar.slider("People in Household", 1, 10, 4)
+usage_pattern = st.sidebar.selectbox("Usage Pattern", ["Low", "Medium", "High"])
+leak_status = st.sidebar.checkbox("Water Leak Detected")
+
+# Model prediction
+if st.sidebar.button("🧠 Predict Optimal Usage"):
+    # Simulate AI prediction
+    base_usage = people_count * 150
+    if usage_pattern == "High": base_usage *= 1.3
+    if leak_status: base_usage *= 1.2
+    
+    optimal_usage = base_usage * 0.85  # AI optimization
+    savings = base_usage - optimal_usage
+    
+    st.session_state.prediction = {
+        'current': base_usage,
+        'optimal': optimal_usage,
+        'savings': savings
+    }
+
+# Main dashboard
+col1, col2 = st.columns(2)
+
+with col1:
+    st.metric("Current Usage", f"{st.session_state.prediction['current']:.0f}L/day" if 'prediction' in st.session_state else "0L")
+    st.metric("Optimal Usage", f"{st.session_state.prediction['optimal']:.0f}L/day" if 'prediction' in st.session_state else "0L")
+    st.metric("Daily Savings", f"{st.session_state.prediction['savings']:.0f}L" if 'prediction' in st.session_state else "0L")
+
+with col2:
+    if 'prediction' in st.session_state:
+        fig = go.Figure(data=[
+            go.Bar(name='Current', x=['Usage'], y=[st.session_state.prediction['current']]),
+            go.Bar(name='Optimal', x=['Usage'], y=[st.session_state.prediction['optimal']])
+        ])
+        fig.update_layout(title="Water Usage Comparison", yaxis_title="Liters/Day")
+        st.plotly_chart(fig, use_container_width=True)
+
+# Usage breakdown chart
+if 'prediction' in st.session_state:
+    categories = ['Drinking', 'Cooking', 'Bathing', 'Cleaning', 'Toilet']
+    weights = [0.1, 0.1, 0.4, 0.2, 0.2]
+    usage_breakdown = np.array(weights) * st.session_state.prediction['optimal']
+    
+    fig_pie = px.pie(values=usage_breakdown, names=categories, title="Optimal Usage Breakdown")
+    st.plotly_chart(fig_pie, use_container_width=True)
+
+# Tips section
+st.header("💡 Optimization Tips")
+tips = [
+    "Fix leaks immediately - saves 20-30% water",
+    "Use low-flow showerheads",
+    "Collect rainwater for gardening", 
+    "Install water meters on taps",
+    "Shorten shower time by 2 minutes"
+]
+
+for tip in tips:
+    st.write(f"• {tip}")
+
+# Footer
+st.markdown("---")
+st.markdown("*Developed by Aayush Kasu, Thakur College AI & DS | 2026*")
